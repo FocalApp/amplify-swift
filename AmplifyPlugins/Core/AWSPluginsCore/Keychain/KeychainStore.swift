@@ -63,10 +63,14 @@ public struct KeychainStore: KeychainStoreBehavior {
     }
 
     public init() {
-        guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
-            fatalError("Unable to retrieve bundle identifier to initialize keychain")
+        if let bundleIdentifier = KeychainStoreGlobalSettings.bundleIdentifier {
+            self.init(service: bundleIdentifier)
+        } else {
+            guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
+                fatalError("Unable to retrieve bundle identifier to initialize keychain")
+            }
+            self.init(service: bundleIdentifier)
         }
-        self.init(service: bundleIdentifier)
     }
 
     public init(service: String) {
@@ -110,7 +114,38 @@ public struct KeychainStore: KeychainStoreBehavior {
         query[Constants.ReturnData] = kCFBooleanTrue
 
         query[Constants.AttributeAccount] = key
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
 
+        switch status {
+        case errSecSuccess:
+            guard let data = result as? Data else {
+                log.error("[KeychainStore] The keychain item retrieved is not the correct type")
+                throw KeychainStoreError.unknown("The keychain item retrieved is not the correct type")
+            }
+            log.verbose("[KeychainStore] Successfully retrieved `Data` from the store with key=\(key)")
+            return data
+        case errSecItemNotFound:
+            log.verbose("[KeychainStore] No Keychain item found for key=\(key)")
+            // check non-shared keychain
+            let oldData = try _getDataFromOldKeychain(key)
+            try? _set(oldData, key: key)
+            return oldData
+        default:
+            log.error("[KeychainStore] Error of status=\(status) occurred when attempting to retrieve a Keychain item for key=\(key)")
+            throw KeychainStoreError.securityError(status)
+        }
+    }
+    
+    private func _getDataFromOldKeychain(_ key: String) throws -> Data {
+        log.verbose("[KeychainStore] Started retrieving `Data` from the store with key=\(key)")
+        var query = attributes.defaultGetQuery()
+        query[KeychainStore.Constants.AttributeAccessGroup] = nil
+        query[Constants.MatchLimit] = Constants.MatchLimitOne
+        query[Constants.ReturnData] = kCFBooleanTrue
+        query[Constants.AttributeAccount] = key
+        
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
@@ -157,6 +192,7 @@ public struct KeychainStore: KeychainStoreBehavior {
         log.verbose("[KeychainStore] Started setting `Data` for key=\(key)")
         var getQuery = attributes.defaultGetQuery()
         getQuery[Constants.AttributeAccount] = key
+                
         log.verbose("[KeychainStore] Initialized fetching to decide whether update or add")
         let fetchStatus = SecItemCopyMatching(getQuery as CFDictionary, nil)
         switch fetchStatus {
@@ -209,6 +245,15 @@ public struct KeychainStore: KeychainStoreBehavior {
             log.error("[KeychainStore] Error removing itms from keychain with status=\(status)")
             throw KeychainStoreError.securityError(status)
         }
+        
+        // remove from non-shared keychain
+        query[KeychainStore.Constants.AttributeAccessGroup] = nil
+        let status2 = SecItemDelete(query as CFDictionary)
+        if status2 != errSecSuccess && status2 != errSecItemNotFound {
+            log.error("[KeychainStore] Error removing itms from keychain with status=\(status2)")
+            throw KeychainStoreError.securityError(status)
+        }
+        
         log.verbose("[KeychainStore] Successfully removed item from keychain")
     }
 
@@ -225,6 +270,14 @@ public struct KeychainStore: KeychainStoreBehavior {
         let status = SecItemDelete(query as CFDictionary)
         if status != errSecSuccess && status != errSecItemNotFound {
             log.error("[KeychainStore] Error removing all items from keychain with status=\(status)")
+            throw KeychainStoreError.securityError(status)
+        }
+        
+        // remove from non-shared keychain
+        query[KeychainStore.Constants.AttributeAccessGroup] = nil
+        let status2 = SecItemDelete(query as CFDictionary)
+        if status2 != errSecSuccess && status2 != errSecItemNotFound {
+            log.error("[KeychainStore] Error removing all items from keychain with status=\(status2)")
             throw KeychainStoreError.securityError(status)
         }
         log.verbose("[KeychainStore] Successfully removed all items from keychain")
