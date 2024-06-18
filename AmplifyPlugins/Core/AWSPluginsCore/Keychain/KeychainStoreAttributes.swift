@@ -30,8 +30,7 @@ extension KeychainStoreAttributes {
             KeychainStore.Constants.UseDataProtectionKeyChain: kCFBooleanTrue
         ]
         
-        // use shared keychain
-        if let globalAccessGroup = KeychainStoreGlobalSettings.globalAccessGroup {
+        if let globalAccessGroup = accessGroup {
             query[KeychainStore.Constants.AttributeAccessGroup] = globalAccessGroup
         }
         
