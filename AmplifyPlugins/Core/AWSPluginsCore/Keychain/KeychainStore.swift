@@ -64,12 +64,12 @@ public struct KeychainStore: KeychainStoreBehavior {
 
     public init() {
         if let bundleIdentifier = KeychainStoreGlobalSettings.bundleIdentifier {
-            self.init(service: bundleIdentifier)
+            self.init(service: bundleIdentifier, accessGroup: KeychainStoreGlobalSettings.globalAccessGroup)
         } else {
             guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
                 fatalError("Unable to retrieve bundle identifier to initialize keychain")
             }
-            self.init(service: bundleIdentifier)
+            self.init(service: bundleIdentifier, accessGroup: KeychainStoreGlobalSettings.globalAccessGroup)
         }
     }
 
