@@ -247,7 +247,8 @@ extension WebSocketClient: URLSessionWebSocketDelegate {
         let nsError = error as NSError
         switch (nsError.domain, nsError.code) {
         case (NSURLErrorDomain.self, NSURLErrorNetworkConnectionLost), // connection lost
-             (NSPOSIXErrorDomain.self, Int(ECONNABORTED)): // background to foreground
+             (NSPOSIXErrorDomain.self, Int(ECONNABORTED)), // background to foreground
+             (NSPOSIXErrorDomain.self, 57): // ENOTCONN - Socket is not connected
             self.subject.send(.error(WebSocketClient.Error.connectionLost))
             Task { [weak self] in
                 await self?.networkMonitor.updateState(.offline)
