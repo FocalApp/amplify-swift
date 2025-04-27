@@ -298,15 +298,15 @@ extension WebSocketClient {
         }
 
         switch stateChange {
-        case (.online, .offline):
-            log.debug("[WebSocketClient] NetworkMonitor - Device went offline")
+        case (_, .offline):
+            log.debug("[WebSocketClient] NetworkMonitor - Device went offline \(stateChange)")
             self.connection?.cancel(with: .invalid, reason: nil)
             self.subject.send(.disconnected(.invalid, nil))
         case (.offline, .online):
             log.debug("[WebSocketClient] NetworkMonitor - Device back online")
             await self.createConnectionAndRead()
         default:
-            break
+            log.debug("[WebSocketClient] NetworkMonitor - state change: \(stateChange)")
         }
     }
 }
