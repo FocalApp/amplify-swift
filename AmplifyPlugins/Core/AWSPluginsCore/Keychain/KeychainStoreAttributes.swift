@@ -7,12 +7,18 @@
 
 import Foundation
 
-struct KeychainStoreAttributes {
+public struct KeychainStoreGlobalSettings {
+    // shared keychain access group id
+    public static var globalAccessGroup: String?
+    
+    // used as kSecAttrService
+    public static var bundleIdentifier: String?
+}
 
+struct KeychainStoreAttributes {
     var itemClass: String = KeychainStore.Constants.ClassGenericPassword
     var service: String
     var accessGroup: String?
-
 }
 
 extension KeychainStoreAttributes {
@@ -27,6 +33,12 @@ extension KeychainStoreAttributes {
         if let accessGroup {
             query[KeychainStore.Constants.AttributeAccessGroup] = accessGroup
         }
+        
+        // use shared keychain
+        if let globalAccessGroup = KeychainStoreGlobalSettings.globalAccessGroup {
+            query[KeychainStore.Constants.AttributeAccessGroup] = globalAccessGroup
+        }
+        
         return query
     }
 
